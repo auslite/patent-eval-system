@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专利技术方案三方评估系统</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Bmob SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/bmob-js-sdk@2.0.0/dist/bmob.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面头部 -->
+        <header class="header">
+            <h1>📊 专利技术方案三方评估系统</h1>
+            <p>市场端 · 研发端 · 专利端 联合协作平台</p>
+        </header>
+
+        <!-- 登录界面 -->
+        <section id="loginSection" class="login-section">
+            <div class="login-card">
+                <h2 class="login-title">🔐 用户登录</h2>
+                <div id="loginAlert" class="alert hidden"></div>
+                <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+                    <div class="form-group">
+                        <label for="loginRealName">姓名</label>
+                        <input type="text" id="loginRealName" placeholder="请输入姓名" required autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginDept">所属部门</label>
+                        <select id="loginDept" required>
+                            <option value="">请选择</option>
+                            <option value="market">🏢 市场端</option>
+                            <option value="tech">🔬 研发端</option>
+                            <option value="patent">⚖️ 专利端</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginInviteCode">邀请码</label>
+                        <input type="password" id="loginInviteCode" placeholder="请输入邀请码" maxlength="10" required autocomplete="off">
+                    </div>
+                    <button type="submit" class="btn btn-primary">进入系统</button>
+                </form>
+                <div class="info-box">
+                    <p id="dataStatusText"><strong>💡 数据说明：</strong>正在检查云端连接...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 主应用 -->
+        <main id="mainApp" class="hidden">
+            <!-- 用户信息栏 -->
+            <div class="user-bar">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar"></div>
+                    <div class="user-details">
+                        <strong id="userName"></strong>
+                        <small id="userDept"></small>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="logout()">退出</button>
+            </div>
+
+            <!-- 导航标签 -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="projects" onclick="switchTab('projects')">📋 项目列表</button>
+                <button class="nav-tab" data-tab="newProject" onclick="switchTab('newProject')">➕ 新建项目</button>
+                <button class="nav-tab" data-tab="history" onclick="switchTab('history')">📜 历史记录</button>
+                <button class="nav-tab" data-tab="settings" onclick="switchTab('settings')">⚙️ 数据管理</button>
+            </nav>
+
+            <!-- 项目列表页 -->
+            <section id="projectsTab" class="tab-content active">
+                <div class="info-box">
+                    <p><strong>欢迎！</strong>点击项目卡片查看详情和进行评估。提交后可见其他部门评分结果。</p>
+                </div>
+                <!-- 搜索筛选 -->
+                <div class="search-filter-bar">
+                    <input type="text" id="projectSearch" placeholder="🔍 搜索项目名称..." oninput="filterProjects()">
+                    <select id="projectFilter" onchange="filterProjects()">
+                        <option value="all">全部项目</option>
+                        <option value="pending">待评估</option>
+                        <option value="completed">已完成</option>
+                        <option value="my">我创建的</option>
+                    </select>
+                </div>
+                <div id="projectList" class="project-list"></div>
+            </section>
+
+            <!-- 新建项目页 -->
+            <section id="newProjectTab" class="tab-content">
+                <div class="info-box"><p><strong>创建新评估项目</strong></p></div>
+                <form id="newProjectForm" onsubmit="event.preventDefault(); createProject();">
+                    <div class="form-group">
+                        <label for="newProjectName">方案名称 <span class="required">*</span></label>
+                        <input type="text" id="newProjectName" placeholder="请输入方案名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectDesc">方案描述</label>
+                        <textarea id="newProjectDesc" rows="5" placeholder="请详细描述方案内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectImages">技术方案图片（最多 5 张）</label>
+                        <input type="file" id="newProjectImages" accept="image/*" multiple onchange="handleImagePreview(this)">
+                        <small class="form-hint">支持 JPG、PNG、GIF 格式，单张不超过 5MB</small>
+                        <div id="imagePreviewContainer" class="image-preview"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectLink">技术方案链接</label>
+                        <input type="url" id="newProjectLink" placeholder="https://example.com/technical-docs">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="switchTab('projects')">取消</button>
+                        <button type="submit" class="btn btn-primary">创建项目</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 历史记录页 -->
+            <section id="historyTab" class="tab-content">
+                <div class="info-box"><p><strong>评估历史</strong>查看所有已提交的评估记录。</p></div>
+                <div class="search-filter-bar">
+                    <input type="text" id="historySearch" placeholder="🔍 搜索项目或评估人..." oninput="filterHistory()">
+                </div>
+                <div id="historyList" class="project-list"></div>
+            </section>
+
+            <!-- 数据管理页 -->
+            <section id="settingsTab" class="tab-content">
+                <div class="info-box">
+                    <p><strong>数据管理</strong>导出当前数据分享给同事，或导入同事分享的数据实现协作。</p>
+                </div>
+                
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <span class="settings-icon">📤</span>
+                            <h3>导出数据</h3>
+                        </div>
+                        <div class="settings-body">
+                            <p>将所有项目和评估数据导出为 JSON 文件，可分享给其他同事导入。</p>
+                            <div class="export-options">
+                                <label><input type="radio" name="exportType" value="all" checked> 全部数据</label>
+                                <label><input type="radio" name="exportType" value="projects"> 仅项目</label>
+                                <label><input type="radio" name="exportType" value="evaluations"> 仅评估</label>
+                            </div>
+                            <button class="btn btn-primary" onclick="exportData()">导出数据</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <span class="settings-icon">📥</span>
+                            <h3>导入数据</h3>
+                        </div>
+                        <div class="settings-body">
+                            <p>导入同事分享的数据文件，合并到当前数据库中。</p>
+                            <input type="file" id="importFile" class="file-input" accept=".json" onchange="importData(this)">
+                            <button class="btn btn-success" onclick="document.getElementById('importFile').click()">选择文件导入</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-card warning">
+                        <div class="settings-header">
+                            <span class="settings-icon">🗑️</span>
+                            <h3>清空数据</h3>
+                        </div>
+                        <div class="settings-body">
+                            <p>清空所有本地数据（不可恢复）。建议先导出备份。</p>
+                            <button class="btn btn-danger" onclick="clearAllData()">清空所有数据</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <span class="settings-icon">💾</span>
+                            <h3>数据备份</h3>
+                        </div>
+                        <div class="settings-body">
+                            <p>自动备份数据到本地存储，防止意外丢失。</p>
+                            <div id="backupStatus" class="backup-status"></div>
+                            <button class="btn btn-primary" onclick="createBackup()">立即备份</button>
+                            <button class="btn btn-secondary" onclick="restoreBackup()">恢复备份</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 项目详情页 -->
+            <section id="detailTab" class="tab-content">
+                <div id="detailContent"></div>
+                <div id="evalFormSection"></div>
+                <div id="submittedResult" class="hidden"></div>
+                <div id="otherScoresSection" class="hidden"></div>
+                <div class="detail-actions">
+                    <button class="back-to-list-btn" onclick="backToProjects()">
+                        <span class="btn-icon">←</span>
+                        <span class="btn-text">返回列表</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 雷达图弹窗 -->
+    <div id="radarModal" class="modal-overlay" onclick="if(event.target===this)closeRadarModal()">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeRadarModal()">×</button>
+            <h3 id="radarModalTitle">📊 评估详情</h3>
+            <div class="radar-chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+            <div id="radarModalFooter"></div>
+        </div>
+    </div>
+
+    <!-- 指导建议弹窗 -->
+    <div id="guideModal" class="modal-overlay" onclick="if(event.target===this)closeGuideModal()">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="guideModalTitle">📋 综合评估指导建议</h3>
+                <button class="btn btn-secondary" onclick="closeGuideModal()">✕ 关闭</button>
+            </div>
+            <div id="guideModalContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="printGuideReportFromModal()">🖨️ 打印</button>
+                <button class="btn btn-success" onclick="downloadGuideReportFromModal()">💾 下载</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI分析报告弹窗 -->
+    <div id="aiReportModal" class="modal-overlay" onclick="if(event.target===this)closeAIReportModal()">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="aiReportModalTitle">🤖 AI 智能分析报告</h3>
+                <button class="btn btn-secondary" onclick="closeAIReportModal()">✕ 关闭</button>
+            </div>
+            <div id="aiReportContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="printAIReport()">🖨️ 打印</button>
+                <button class="btn btn-success" onclick="downloadAIReport()">💾 下载</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评估报告弹窗 -->
+    <div id="reportModal" class="modal-overlay" onclick="if(event.target===this)closeReportModal()">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="reportModalTitle">📊 技术方案评估报告</h3>
+                <button class="btn btn-secondary" onclick="closeReportModal()">✕ 关闭</button>
+            </div>
+            <div id="reportContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="printReport()">🖨️ 打印报告</button>
+                <button class="btn btn-success" onclick="downloadReport()">💾 下载报告</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑项目弹窗 -->
+    <div id="editProjectModal" class="modal-overlay" onclick="if(event.target===this)closeEditModal()">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeEditModal()">×</button>
+            <h3>✏️ 编辑项目</h3>
+            <form id="editProjectForm" onsubmit="event.preventDefault(); saveProjectEdit();">
+                <div class="form-group">
+                    <label for="editProjectName">方案名称 <span class="required">*</span></label>
+                    <input type="text" id="editProjectName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editProjectDesc">方案描述</label>
+                    <textarea id="editProjectDesc" rows="5"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>现有图片</label>
+                    <div id="editExistingImages" class="image-preview"></div>
+                </div>
+                <div class="form-group">
+                    <label for="editProjectImages">添加新图片（最多 5 张）</label>
+                    <input type="file" id="editProjectImages" accept="image/*" multiple onchange="handleEditImagePreview(this)">
+                    <div id="editImagePreviewContainer" class="image-preview"></div>
+                </div>
+                <div class="form-group">
+                    <label for="editProjectLink">技术方案链接</label>
+                    <input type="url" id="editProjectLink">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 图片查看器弹窗 -->
+    <div id="imageViewerModal" class="modal-overlay modal-image" onclick="if(event.target===this)closeImageViewer()">
+        <div class="modal-content modal-image-content">
+            <button class="modal-close" onclick="closeImageViewer()">×</button>
+            <img id="imageViewerImg" src="" alt="预览图片">
+        </div>
+    </div>
+
+    <!-- 分数段价值参考标准弹窗 -->
+    <div id="scoreRangeModal" class="modal-overlay" onclick="if(event.target===this)closeScoreRangeModal()">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="scoreRangeModalTitle">📊 分数段价值参考标准</h3>
+                <button class="btn btn-secondary" onclick="closeScoreRangeModal()">✕ 关闭</button>
+            </div>
+            <div id="scoreRangeModalContent"></div>
+        </div>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-content modal-small">
+            <h3 id="confirmTitle">确认操作</h3>
+            <p id="confirmMessage"></p>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">取消</button>
+                <button id="confirmBtn" class="btn btn-danger">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置文件（阿里云 EMAS 连接信息） -->
+    <script src="config.js"></script>
+    <!-- 主要逻辑 -->
+    <script src="app_logic.js"></script>
+</body>
+</html>
